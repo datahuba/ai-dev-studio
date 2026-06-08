@@ -1,5 +1,10 @@
 ﻿FROM python:3.11-slim
 
+# Variables de entorno para optimizar Python en Docker
+ENV PYTHONDONTWRITEBYTECODE=1
+# Desactiva el buffer de salida para que los logs de consola aparezcan de inmediato
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 # Instalar dependencias del sistema necesarias para compilar paquetes
