@@ -12,6 +12,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Verificar credenciales SSH (Secrets)
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_USER }}" ] || [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+            echo "ERROR: Faltan configurar los secretos en GitHub."
+            echo "Ve a: Settings > Secrets and variables > Actions > New repository secret"
+            echo "Añade: VPS_HOST (ej. 123.45.67.89), VPS_USER (ej. ubuntu), y VPS_SSH_KEY (tu llave privada)."
+            exit 1
+          fi
+          echo "Secretos detectados. Procediendo con la conexión SSH."
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -19,7 +29,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Crear directorio si no existe o clonar repositorio
             if [ ! -d "/home/ubuntu/ai-dev-studio/.git" ]; then
               git clone -b develop_kevin https://github.com/datahuba/ai-dev-studio.git /home/ubuntu/ai-dev-studio
             fi
@@ -28,5 +37,4 @@ jobs:
             git fetch origin develop_kevin
             git reset --hard origin/develop_kevin
             
-            # Reconstruir y levantar contenedores
             docker compose up -d --build
