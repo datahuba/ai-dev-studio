@@ -18,7 +18,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 30m
+          # Incrementado a 120 minutos para permitir compilación de paquetes pesados (IA/ML)
+          command_timeout: 120m
           script: |
             # 1. Instalar dependencias si es un servidor VPS nuevo
             if ! command -v git &> /dev/null || ! command -v docker &> /dev/null; then
