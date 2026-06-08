@@ -1,0 +1,27 @@
+﻿services:
+  ai-agents:
+    build: .
+    container_name: ai-dev-studio-agents
+    restart: always
+    volumes:
+      - /home/ubuntu/datahub:/workspace/datahub
+      - .:/app
+    environment:
+      - WINDSURF_API_BASE=http://windsurf-api:3003/v1
+    networks:
+      - ai-network
+
+  windsurf-api:
+    image: node:18-alpine
+    container_name: windsurf-api-proxy
+    restart: always
+    ports:
+      - "3003:3003"
+    networks:
+      - ai-network
+    # Comando o script interno de inicialización requerido en el futuro
+    command: ["echo", "Proxy service pending real implementation"]
+
+networks:
+  ai-network:
+    driver: bridge
