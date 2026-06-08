@@ -1,0 +1,25 @@
+# Entornos virtuales locales de Python creados por uv o venv
+.venv/
+venv/
+ENV/
+env/
+
+# Archivos de caché y compilación de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Variables de entorno locales y secretos
+.env
+.env.local
+.env.production
+
+# Configuraciones específicas de VS Code
+.vscode/
+*.code-workspace
+
+# Carpetas de datos locales generadas por la ejecución de los agentes
+output/

@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  ai-dev-team:
+    build: .
+    container_name: ai-dev-team
+    restart: always
+    environment:
+      - OPENAI_API_BASE=http://windsurf-api:3003/v1
+      - OPENAI_API_KEY=tu_token_interno_vps
+      - WORKSPACE_DIR=/workspace/datahub
+    volumes:
+      - /home/ubuntu/datahub:/workspace/datahub
+      - ./skills:/workspace/skills
+      - ./output:/workspace/output
