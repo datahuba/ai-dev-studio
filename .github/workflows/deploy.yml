@@ -19,7 +19,18 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
-            # Crear directorio si no existe o clonar repositorio
+            # 1. Instalar dependencias si es un servidor VPS nuevo
+            if ! command -v git &> /dev/null || ! command -v docker &> /dev/null; then
+              echo "Dependencias faltantes. Instalando Git y Docker..."
+              apt-get update -y
+              apt-get install -y git curl
+              if ! command -v docker &> /dev/null; then
+                curl -fsSL https://get.docker.com -o get-docker.sh
+                sh get-docker.sh
+              fi
+            fi
+            
+            # 2. Clonar o actualizar el repositorio
             if [ ! -d "/root/ai-dev-studio/.git" ]; then
               git clone -b develop_kevin https://github.com/datahuba/ai-dev-studio.git /root/ai-dev-studio
             fi
@@ -28,6 +39,5 @@ jobs:
             git fetch origin develop_kevin
             git reset --hard origin/develop_kevin
             
-            # Reconstruir y levantar contenedores
+            # 3. Construir y levantar contenedores
             docker compose up -d --build
-            
