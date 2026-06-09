@@ -1,17 +1,23 @@
 ﻿import os
 import time
+import traceback
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
+from langchain_openai import ChatOpenAI
 
 def main():
     load_dotenv()
     
     api_base = os.getenv("WINDSURF_API_BASE", "http://windsurf-api:3003/v1")
-    os.environ["OPENAI_API_BASE"] = api_base
-    os.environ["OPENAI_API_KEY"] = "sk-windsurf-dummy-token"
-    os.environ["OPENAI_MODEL_NAME"] = "gpt-4-turbo" 
+    print(f"[*] Entorno inicializado. Configurando LLM hacia: {api_base}")
     
-    print(f"[*] Entorno inicializado. Tráfico LLM redirigido a: {api_base}")
+    # Instanciación explícita del LLM para evitar fallos de lectura de variables de entorno
+    custom_llm = ChatOpenAI(
+        api_key="sk-windsurf-dummy-token",
+        base_url=api_base,
+        model_name="gpt-4-turbo"
+    )
+
     print("[*] Desplegando equipo de agentes AI Dev Studio...\n")
 
     # 1. Agentes
@@ -20,7 +26,8 @@ def main():
         goal='Diseñar la estructura base y los pasos a seguir para el desarrollo.',
         backstory='Eres un Arquitecto de Software Senior encargado de guiar al equipo.',
         verbose=True,
-        allow_delegation=False
+        allow_delegation=False,
+        llm=custom_llm
     )
 
     developer = Agent(
@@ -28,7 +35,8 @@ def main():
         goal='Escribir el código en FastAPI y SvelteKit siguiendo el plan del Arquitecto.',
         backstory='Eres un desarrollador experto en Python y TypeScript.',
         verbose=True,
-        allow_delegation=False
+        allow_delegation=False,
+        llm=custom_llm
     )
 
     qa_engineer = Agent(
@@ -36,7 +44,8 @@ def main():
         goal='Revisar el código generado, buscar bugs y asegurar la calidad.',
         backstory='Eres un auditor de código riguroso que no deja pasar ninguna falla.',
         verbose=True,
-        allow_delegation=False
+        allow_delegation=False,
+        llm=custom_llm
     )
 
     # 2. Tareas Secuenciales
@@ -75,7 +84,9 @@ def main():
         print("==========================================")
         print(result)
     except Exception as e:
-        print(f"\n[!] Error durante la ejecución del equipo: {e}")
+        print(f"\n[!] Error general capturado: {e}")
+        # Impresión completa del stack de errores para debugging
+        print(traceback.format_exc())
 
     print("\n[*] Ciclo de prueba finalizado. Pausando contenedor...")
     while True:
