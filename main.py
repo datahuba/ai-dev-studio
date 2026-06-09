@@ -22,9 +22,9 @@ def main():
         os.environ["OPENAI_API_BASE"] = os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1")
         os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025")
         
-        # Corrección: Debido a que la cuenta recién agregada requiere validación asíncrona de tier
-        # para usar Claude (probe_pending), usamos el modelo garantizado en la respuesta de la API.
-        os.environ["OPENAI_MODEL_NAME"] = "gemini-2.5-flash"
+        # Corrección: El prefijo "openai/" fuerza a CrewAI a utilizar el protocolo HTTP estándar
+        # y enviar la petición a nuestro proxy, evitando que intente cargar la librería nativa de Google.
+        os.environ["OPENAI_MODEL_NAME"] = "openai/gemini-2.5-flash"
         
         def load_skill(file_name):
             path = os.path.join(os.path.dirname(__file__), 'skills', file_name)
