@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
       try {
         reqObj = JSON.parse(body);
       } catch (e) {
-        // Ignorar si no se puede parsear
+        // Ignorar si el cuerpo no es JSON válido
       }
 
       let responseContent = "Respuesta genérica del proxy.";
@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
       // Analizar el prompt entrante para devolver una respuesta contextual
       if (body.includes("Desarrollador Full-Stack")) {
         console.log('[Windsurf Proxy] Petición interceptada: Agente Desarrollador');
-        responseContent = "He revisado el plan del Arquitecto. He implementado el endpoint en FastAPI y su correspondiente componente en SvelteKit. El código ha sido optimizado en el entorno seguro.";
+        responseContent = "He revisado el plan del Arquitecto. He implementado el endpoint en FastAPI y su correspondiente componente en SvelteKit. El código ha sido refactorizado en el entorno seguro.";
       } else if (body.includes("Ingeniero de QA")) {
         console.log('[Windsurf Proxy] Petición interceptada: Agente QA');
         responseContent = "He ejecutado las pruebas estáticas y revisado la lógica del Desarrollador. No se encontraron vulnerabilidades. El código está listo para producción.";
@@ -32,52 +32,58 @@ const server = http.createServer((req, res) => {
         responseContent = "¡Hola, equipo! Soy el Arquitecto de Software AI.\n\nPropongo estos pasos:\n1. Analizar `/workspace/datahub`.\n2. Auditar la base de datos MongoDB.\n3. Identificar componentes UI.";
       }
 
+      // Estructura ReAct requerida por CrewAI
       const reactFormatResponse = `Thought: Comprendo la tarea asignada y puedo entregar el resultado.\nFinal Answer: ${responseContent}`;
 
       if (reqObj.stream) {
+        // Cabeceras estrictas para streaming de eventos (SSE)
         res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
+          'Content-Type': 'text/event-stream; charset=utf-8',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive'
+          'Connection': 'keep-alive',
+          'Transfer-Encoding': 'chunked'
         });
 
-        // Fragmento 1: Inicialización del rol (Estándar obligatorio de OpenAI)
-        res.write(`data: ${JSON.stringify({
-          id: "chatcmpl-mock",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: "gpt-4-turbo",
-          choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }]
-        })}\n\n`);
+        const id = "chatcmpl-mock-" + Date.now();
+        const created = Math.floor(Date.now() / 1000);
+        const model = reqObj.model || "gpt-4-turbo";
 
-        // Fragmento 2: Inyección de la carga útil (Content)
-        res.write(`data: ${JSON.stringify({
-          id: "chatcmpl-mock",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: "gpt-4-turbo",
-          choices: [{ index: 0, delta: { content: reactFormatResponse }, finish_reason: null }]
-        })}\n\n`);
+        const sendChunk = (delta, finish_reason) => {
+          const chunk = {
+            id: id,
+            object: "chat.completion.chunk",
+            created: created,
+            model: model,
+            choices: [{ index: 0, delta: delta, finish_reason: finish_reason }]
+          };
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        };
 
-        // Fragmento 3: Señal de finalización (Stop Sequence)
-        res.write(`data: ${JSON.stringify({
-          id: "chatcmpl-mock",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: "gpt-4-turbo",
-          choices: [{ index: 0, delta: {}, finish_reason: "stop" }]
-        })}\n\n`);
+        // Despacho asíncrono para garantizar que los paquetes se transmitan por separado
+        setTimeout(() => {
+          sendChunk({ role: "assistant", content: "" }, null);
+        }, 100);
 
-        // Cierre oficial de conexión SSE
-        res.write('data: [DONE]\n\n');
-        res.end();
+        setTimeout(() => {
+          sendChunk({ content: reactFormatResponse }, null);
+        }, 300);
+
+        setTimeout(() => {
+          sendChunk({}, "stop");
+        }, 500);
+
+        setTimeout(() => {
+          res.write('data: [DONE]\n\n');
+          res.end();
+        }, 700);
+
       } else {
-        // Respuesta JSON estándar (por si LangChain decide invocar sin streaming)
+        // Respuesta JSON estándar
         const response = {
           id: "chatcmpl-mock",
           object: "chat.completion",
           created: Math.floor(Date.now() / 1000),
-          model: "gpt-4-turbo",
+          model: reqObj.model || "gpt-4-turbo",
           choices: [{
             index: 0,
             message: { role: "assistant", content: reactFormatResponse },
