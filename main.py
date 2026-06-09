@@ -11,7 +11,6 @@ def main():
     report_path = os.path.join(output_dir, "sprint_report.md")
     prompt_path = os.path.join(memory_dir, "prompt.txt")
     
-    # Si no existe un archivo de instrucciones, creamos uno de ejemplo por defecto
     if not os.path.exists(prompt_path):
         with open(prompt_path, "w", encoding="utf-8") as f:
             f.write("Instrucción para la IA: Lee el archivo /workspace/datahub/kyc/frontend/src/routes/+page.svelte y agrégale un botón de color rojo que reinicie la variable 'name' a su estado original.")
@@ -27,6 +26,9 @@ def main():
         os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025")
         os.environ["OPENAI_MODEL_NAME"] = "openai/gemini-2.5-flash"
         
+        # Autorizar explícitamente a CrewAI para que lea/escriba fuera de la carpeta /app
+        os.environ["CREWAI_TOOLS_ALLOW_UNSAFE_PATHS"] = "true"
+        
         def load_skill(file_name):
             path = os.path.join(os.path.dirname(__file__), 'skills', file_name)
             if os.path.exists(path):
@@ -37,18 +39,15 @@ def main():
         backend_rules = load_skill("backend-rules.md")
         frontend_rules = load_skill("frontend-rules.md")
         
-        # Leer la instrucción dinámica del usuario
         with open(prompt_path, "r", encoding="utf-8") as f:
             user_prompt = f.read().strip()
             
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(f"# AI Dev Studio - Nuevo Sprint\n**Instrucción recibida:** {user_prompt}\n\n")
 
-        # Inicializar herramientas físicas
         file_writer = FileWriterTool()
         file_reader = FileReadTool()
 
-        # 1. Agente Planificador
         planner = Agent(
             role='Arquitecto de Software y Planificador',
             goal='Analizar la solicitud del usuario y definir qué archivos del sistema deben modificarse.',
@@ -57,7 +56,6 @@ def main():
             allow_delegation=False
         )
 
-        # 2. Agente Desarrollador (Ahora puede LEER y ESCRIBIR)
         developer = Agent(
             role='Desarrollador Full-Stack Senior',
             goal='Leer el código existente y escribir las modificaciones requeridas en el disco duro.',
@@ -67,7 +65,6 @@ def main():
             tools=[file_reader, file_writer]
         )
 
-        # 3. Agente QA (Auditor de Calidad)
         qa_engineer = Agent(
             role='Ingeniero de Calidad y Seguridad (QA)',
             goal='Verificar que el código escrito por el desarrollador funcione y cumpla con las reglas del framework.',
@@ -77,7 +74,6 @@ def main():
             tools=[file_reader]
         )
 
-        # Tareas secuenciales
         plan_task = Task(
             description=f'Analiza la siguiente instrucción del usuario: "{user_prompt}". Crea un plan paso a paso indicando qué rutas absolutas en /workspace/datahub/ deben leerse y modificarse.',
             expected_output='Un plan de acción con la lista de archivos a afectar.',
