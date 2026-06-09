@@ -19,7 +19,6 @@ def main():
         
         load_dotenv()
         
-        # Configurar las variables de entorno para que el motor interno de IA apunte al proxy
         os.environ["OPENAI_API_BASE"] = os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1")
         os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "tu_clave_secreta_vps_3003")
         os.environ["OPENAI_MODEL_NAME"] = "claude-3-5-sonnet"
@@ -35,9 +34,8 @@ def main():
         frontend_rules = load_skill("frontend-rules.md")
         
         with open(report_path, "a", encoding="utf-8") as f:
-            f.write("- Dependencias importadas correctamente. Incompatibilidad de Pydantic resuelta.\n- Instanciando agentes de IA...\n\n")
+            f.write("- Dependencias cargadas. Orquestando equipo de IA...\n\n")
 
-        # Al no pasar el parámetro `llm`, CrewAI tomará por defecto las variables OPENAI_... del sistema
         janus_planner = Agent(
             role='Arquitecto de Software y Planificador',
             goal='Planificar la arquitectura técnica y dividir los requerimientos en tareas atómicas.',
@@ -76,22 +74,42 @@ def main():
         )
         
         with open(report_path, "a", encoding="utf-8") as f:
-            f.write("- Equipo orquestado exitosamente. Llamando a la API de Windsurf (kickoff)...\n\n")
+            f.write("- Equipo orquestado. Llamando al proxy WindsurfAPI (kickoff)...\n\n")
 
+        # Intentar ejecutar el equipo
         result = ai_crew.kickoff()
         
-        # Sobrescribir el archivo con el reporte final redactado por la IA
+        # Si tiene éxito, se sobrescribe con el reporte oficial
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(str(result))
             
         print(f"Ciclo finalizado. Reporte generado en {report_path}")
 
     except Exception as e:
-        error_msg = traceback.format_exc()
-        with open(report_path, "a", encoding="utf-8") as f:
-            f.write("\n## ❌ Error Fatal del Contenedor\n")
-            f.write("El script colapsó en tiempo de ejecución. Detalle del Stack Trace:\n")
-            f.write(f"```python\n{error_msg}\n```\n")
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+        
+        # Interceptar el error específico del proxy sin cuentas
+        if "No active accounts" in error_msg or "503" in error_msg:
+            mensaje_amigable = (
+                "# ⚠️ Configuración Pendiente: Proxy Sin Cuentas\n\n"
+                "El orquestador logró conectarse al proxy `windsurf-api`, pero este respondió con un error `503 No active accounts`.\n\n"
+                "**Pasos para resolverlo:**\n"
+                "1. Abre tu navegador web e ingresa a `http://<IP_DE_TU_VPS>:3003`\n"
+                "2. Inicia sesión usando la clave configurada en el docker-compose (`tu_clave_secreta_vps_3003`).\n"
+                "3. Añade al menos una cuenta gratuita (siguiendo las instrucciones del panel para registrar tokens de Windsurf/Codeium).\n"
+                "4. Una vez añadida la cuenta en el panel, reinicia este contenedor ejecutando en tu terminal SSH:\n"
+                "   `docker restart ai-dev-studio`\n\n"
+                "El equipo de IA se quedará en suspensión esperando a que realices este paso."
+            )
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(mensaje_amigable)
+        else:
+            # Para cualquier otro error imprevisto
+            with open(report_path, "a", encoding="utf-8") as f:
+                f.write("\n## ❌ Error Fatal del Contenedor\n")
+                f.write("El script colapsó en tiempo de ejecución. Detalle del Stack Trace:\n")
+                f.write(f"```python\n{error_trace}\n```\n")
 
     print("Mantenimiento activo para lectura de logs.")
     while True:
