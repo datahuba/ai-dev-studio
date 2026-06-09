@@ -22,9 +22,9 @@ def main():
         os.environ["OPENAI_API_BASE"] = os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1")
         os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025")
         
-        # Corrección: El proxy upstream ha deprecado el identificador antiguo.
-        # Utilizamos la nueva nomenclatura oficial que recomienda el servidor.
-        os.environ["OPENAI_MODEL_NAME"] = "claude-sonnet-4-6"
+        # Corrección: Debido a que la cuenta recién agregada requiere validación asíncrona de tier
+        # para usar Claude (probe_pending), usamos el modelo garantizado en la respuesta de la API.
+        os.environ["OPENAI_MODEL_NAME"] = "gemini-2.5-flash"
         
         def load_skill(file_name):
             path = os.path.join(os.path.dirname(__file__), 'skills', file_name)
@@ -77,7 +77,7 @@ def main():
         )
         
         with open(report_path, "a", encoding="utf-8") as f:
-            f.write("- Equipo orquestado. Llamando al proxy WindsurfAPI (kickoff)...\n\n")
+            f.write(f"- Equipo orquestado. Llamando al proxy (Modelo: {os.environ['OPENAI_MODEL_NAME']})...\n\n")
 
         result = ai_crew.kickoff()
         
