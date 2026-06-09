@@ -20,8 +20,19 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
+          mkdir -p /home/ubuntu/ai-dev-studio
           cd /home/ubuntu/ai-dev-studio
+          
+          if [ ! -d ".git" ]; then
+            git init
+            git remote add origin https://github.com/datahuba/ai-dev-studio.git
+          fi
+          
           git fetch origin develop_kevin
+          git checkout -B develop_kevin origin/develop_kevin
           git reset --hard origin/develop_kevin
-          docker-compose down
+          
+          docker network ls | grep -q windsurf_network || docker network create windsurf_network
+          
+          docker-compose down || true
           docker-compose up -d --build
