@@ -1,4 +1,5 @@
 ﻿import os
+import time
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
@@ -14,6 +15,11 @@ def load_skill(file_name):
 def main():
     load_dotenv()
     
+    # Preparar el directorio y ruta del archivo de salida
+    output_dir = "/app/output"
+    os.makedirs(output_dir, exist_ok=True)
+    report_path = os.path.join(output_dir, "architecture_report.md")
+    
     # Carga de las reglas de arquitectura desde los archivos físicos
     backend_rules = load_skill("backend-rules.md")
     frontend_rules = load_skill("frontend-rules.md")
@@ -27,7 +33,6 @@ def main():
 
     print("Inicializando equipo multiagente con inyección de contexto DataHub...")
 
-    # 1. Agente Planificador (Janus)
     janus_planner = Agent(
         role='Arquitecto de Software y Planificador',
         goal='Planificar la arquitectura técnica y dividir los requerimientos en tareas atómicas.',
@@ -37,7 +42,6 @@ def main():
         llm=windsurf_llm
     )
 
-    # 2. Agente Desarrollador Full-Stack
     fullstack_dev = Agent(
         role='Desarrollador Full-Stack Senior',
         goal='Escribir código en Python (FastAPI) y TypeScript (Svelte 5) siguiendo estrictamente las reglas del proyecto.',
@@ -47,7 +51,6 @@ def main():
         llm=windsurf_llm
     )
 
-    # 3. Agente QA y Seguridad
     qa_engineer = Agent(
         role='Ingeniero de Calidad y Seguridad (QA)',
         goal='Auditar el código propuesto, buscar vulnerabilidades y verificar el cumplimiento de las reglas.',
@@ -57,14 +60,12 @@ def main():
         llm=windsurf_llm
     )
 
-    # Tarea inicial: Generar propuesta de arquitectura respetando el stack
     architecture_task = Task(
         description='Generar un borrador de diseño de arquitectura para el módulo KyC reconociendo explícitamente las reglas de Svelte 5 y FastAPI (Beanie) recibidas en tu contexto.',
         expected_output='Un reporte técnico en Markdown detallando cómo se estructurará la comunicación entre el frontend y backend para el módulo KyC.',
         agent=janus_planner
     )
 
-    # Configuración del flujo de trabajo (Crew)
     ai_crew = Crew(
         agents=[janus_planner, fullstack_dev, qa_engineer],
         tasks=[architecture_task],
@@ -72,20 +73,36 @@ def main():
         verbose=True
     )
 
-    # Ejecución del ciclo
     try:
+        print("Iniciando el sprint de los agentes (kickoff)...")
         result = ai_crew.kickoff()
         
-        output_dir = "/app/output"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        with open(os.path.join(output_dir, "architecture_report.md"), "w", encoding="utf-8") as f:
+        with open(report_path, "w", encoding="utf-8") as f:
             f.write(str(result))
             
-        print("\nCiclo finalizado. Reporte de arquitectura generado en /app/output/architecture_report.md")
+        print(f"\nCiclo finalizado. Reporte de arquitectura generado en {report_path}")
     
     except Exception as e:
-        print(f"\nError durante la ejecución del equipo multiagente: {str(e)}")
+        # Documentar el error en el archivo para que sea visible vía SSH
+        error_message = (
+            "# Error en la Ejecución de los Agentes\n\n"
+            "**Detalle del fallo técnico:**\n"
+            f"```text\n{str(e)}\n```\n\n"
+            "**Diagnóstico probable:**\n"
+            "El proxy `windsurf-api` rechazó la conexión o devolvió un error (ej. 401 Unauthorized). "
+            "Para resolver esto, debes ingresar a `http://<IP_DE_TU_VPS>:3003` desde tu navegador, "
+            "vincular una sesión gratuita de Windsurf/Codeium en el panel y reiniciar este contenedor."
+        )
+        
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(error_message)
+            
+        print(f"\nEjecución fallida. El error ha sido documentado en {report_path}")
+
+    # Evitar el reinicio en bucle de Docker Compose manteniendo el proceso en suspensión
+    print("\nManteniendo el contenedor activo en segundo plano para auditoría de logs...")
+    while True:
+        time.sleep(3600)
 
 if __name__ == "__main__":
     main()
