@@ -22,8 +22,9 @@ def main():
         os.environ["OPENAI_API_BASE"] = os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1")
         os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025")
         
-        # Corrección: El proxy exige punto en lugar de guion para esta versión de Claude
-        os.environ["OPENAI_MODEL_NAME"] = "claude-3.5-sonnet"
+        # Corrección: El proxy upstream ha deprecado el identificador antiguo.
+        # Utilizamos la nueva nomenclatura oficial que recomienda el servidor.
+        os.environ["OPENAI_MODEL_NAME"] = "claude-sonnet-4-6"
         
         def load_skill(file_name):
             path = os.path.join(os.path.dirname(__file__), 'skills', file_name)
