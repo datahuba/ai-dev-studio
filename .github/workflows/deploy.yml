@@ -8,38 +8,20 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          # Incrementado a 120 minutos para permitir compilación de paquetes pesados (IA/ML)
-          command_timeout: 120m
-          script: |
-            # 1. Instalar dependencias si es un servidor VPS nuevo
-            if ! command -v git &> /dev/null || ! command -v docker &> /dev/null; then
-              echo "Dependencias faltantes. Instalando Git y Docker..."
-              apt-get update -y
-              apt-get install -y git curl
-              if ! command -v docker &> /dev/null; then
-                curl -fsSL https://get.docker.com -o get-docker.sh
-                sh get-docker.sh
-              fi
-            fi
-            
-            # 2. Clonar o actualizar el repositorio
-            if [ ! -d "/root/ai-dev-studio/.git" ]; then
-              git clone -b develop_kevin https://github.com/datahuba/ai-dev-studio.git /root/ai-dev-studio
-            fi
-            
-            cd /root/ai-dev-studio
-            git fetch origin develop_kevin
-            git reset --hard origin/develop_kevin
-            
-            # 3. Construir y levantar contenedores
-            docker compose up -d --build
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Deploy to VPS via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/ai-dev-studio
+          git fetch origin develop_kevin
+          git reset --hard origin/develop_kevin
+          docker-compose down
+          docker-compose up -d --build

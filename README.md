@@ -1,4 +1,2 @@
 ﻿# AI Dev Studio
-
-Equipo multiagente autónomo de desarrollo basado en CrewAI.
-Conectado a la base de código de DataHub en un entorno de sandbox.
+Equipo multiagente autónomo de desarrollo para el proyecto DataHub.
