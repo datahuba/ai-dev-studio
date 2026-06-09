@@ -25,8 +25,13 @@ services:
     restart: always
     depends_on:
       - windsurf-api
+    # Mantenemos el contenedor vivo esperando instrucciones por consola
+    entrypoint: ["tail", "-f", "/dev/null"]
     volumes:
-      - /root/datahub:/workspace/datahub
+      # El proyecto productivo queda protegido en modo SOLO-LECTURA (ro) para contexto
+      - /root/datahub:/workspace/datahub:ro
+      # Directorio sandbox aislado donde los agentes crearán nuevos proyectos desde cero
+      - /root/ai-dev-projects:/workspace/projects
       - ./memory:/app/memory
       - ./output:/app/output
     env_file:
