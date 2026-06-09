@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
       try {
         reqObj = JSON.parse(body);
       } catch (e) {
-        // Ignorar error de parseo si el cuerpo no es JSON
+        // Ignorar si no se puede parsear
       }
 
       let responseContent = "Respuesta genérica del proxy.";
@@ -34,7 +34,6 @@ const server = http.createServer((req, res) => {
 
       const reactFormatResponse = `Thought: Comprendo la tarea asignada y puedo entregar el resultado.\nFinal Answer: ${responseContent}`;
 
-      // LangChain Agent Executor utiliza internamente .stream(), lo que exige Server-Sent Events (SSE)
       if (reqObj.stream) {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -42,33 +41,40 @@ const server = http.createServer((req, res) => {
           'Connection': 'keep-alive'
         });
 
-        // Chunk 1: Envío del contenido
-        const chunk1 = {
-          id: "chatcmpl-windsurf-mock",
+        // Fragmento 1: Inicialización del rol (Estándar obligatorio de OpenAI)
+        res.write(`data: ${JSON.stringify({
+          id: "chatcmpl-mock",
           object: "chat.completion.chunk",
           created: Math.floor(Date.now() / 1000),
           model: "gpt-4-turbo",
-          choices: [{ index: 0, delta: { role: "assistant", content: reactFormatResponse }, finish_reason: null }]
-        };
-        res.write(`data: ${JSON.stringify(chunk1)}\n\n`);
+          choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }]
+        })}\n\n`);
 
-        // Chunk 2: Señal de finalización
-        const chunk2 = {
-          id: "chatcmpl-windsurf-mock",
+        // Fragmento 2: Inyección de la carga útil (Content)
+        res.write(`data: ${JSON.stringify({
+          id: "chatcmpl-mock",
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: "gpt-4-turbo",
+          choices: [{ index: 0, delta: { content: reactFormatResponse }, finish_reason: null }]
+        })}\n\n`);
+
+        // Fragmento 3: Señal de finalización (Stop Sequence)
+        res.write(`data: ${JSON.stringify({
+          id: "chatcmpl-mock",
           object: "chat.completion.chunk",
           created: Math.floor(Date.now() / 1000),
           model: "gpt-4-turbo",
           choices: [{ index: 0, delta: {}, finish_reason: "stop" }]
-        };
-        res.write(`data: ${JSON.stringify(chunk2)}\n\n`);
+        })}\n\n`);
 
-        // Cierre de stream estándar de OpenAI
+        // Cierre oficial de conexión SSE
         res.write('data: [DONE]\n\n');
         res.end();
       } else {
-        // Respuesta JSON estándar
+        // Respuesta JSON estándar (por si LangChain decide invocar sin streaming)
         const response = {
-          id: "chatcmpl-windsurf-mock",
+          id: "chatcmpl-mock",
           object: "chat.completion",
           created: Math.floor(Date.now() / 1000),
           model: "gpt-4-turbo",
