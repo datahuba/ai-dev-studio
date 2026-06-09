@@ -20,8 +20,8 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
-          mkdir -p /home/ubuntu/ai-dev-studio
-          cd /home/ubuntu/ai-dev-studio
+          mkdir -p /root/ai-dev-studio
+          cd /root/ai-dev-studio
           
           if [ ! -d ".git" ]; then
             git init

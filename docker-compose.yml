@@ -24,7 +24,7 @@ services:
     depends_on:
       - windsurf-api
     volumes:
-      - /home/ubuntu/datahub:/workspace/datahub
+      - /root/datahub:/workspace/datahub
       - ./memory:/app/memory
       - ./output:/app/output
     env_file:
@@ -35,3 +35,4 @@ services:
 networks:
   ai_network:
     driver: bridge
+    
