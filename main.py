@@ -20,7 +20,7 @@ def main():
         load_dotenv()
         
         os.environ["OPENAI_API_BASE"] = os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1")
-        os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "tu_clave_secreta_vps_3003")
+        os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025")
         os.environ["OPENAI_MODEL_NAME"] = "claude-3-5-sonnet"
         
         def load_skill(file_name):
@@ -93,11 +93,9 @@ def main():
                 "El orquestador logró conectarse al proxy `windsurf-api`, pero este respondió con un error `503 No active accounts`.\n\n"
                 "**Pasos para resolverlo:**\n"
                 "1. Abre tu navegador web e ingresa a `http://<IP_DE_TU_VPS>:3003/dashboard`\n"
-                "2. Inicia sesión usando la clave configurada en el docker-compose (`tu_clave_secreta_vps_3003`).\n"
-                "3. Añade al menos una cuenta gratuita (siguiendo las instrucciones del panel para registrar tokens de Windsurf/Codeium).\n"
-                "4. Una vez añadida la cuenta en el panel, reinicia este contenedor ejecutando en tu terminal SSH:\n"
-                "   `docker restart ai-dev-studio`\n\n"
-                "El equipo de IA se quedará en suspensión esperando a que realices este paso."
+                "2. Inicia sesión usando la clave: `DataHubAnalytics2025`.\n"
+                "3. Añade al menos una cuenta gratuita.\n"
+                "4. Reinicia este contenedor en tu terminal SSH: `docker restart ai-dev-studio`\n"
             )
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(mensaje_amigable)
@@ -113,3 +111,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

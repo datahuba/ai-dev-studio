@@ -32,10 +32,9 @@ jobs:
           git checkout -B develop_kevin origin/develop_kevin
           git reset --hard origin/develop_kevin
           
-          if [ ! -f ".env" ]; then
-            echo "WINDSURF_API_URL=http://windsurf-api:3003/v1" > .env
-            echo "WINDSURF_API_KEY=tu_clave_secreta_vps_3003" >> .env
-          fi
+          # Forzar la reescritura del archivo .env para sincronizar claves
+          echo "WINDSURF_API_URL=http://windsurf-api:3003/v1" > .env
+          echo "WINDSURF_API_KEY=DataHubAnalytics2025" >> .env
           
           docker-compose down || true
           docker-compose up -d --build
