@@ -3,7 +3,7 @@
 services:
   # 1. Proxy de IA (Windsurf API)
   windsurf-api:
-    image: guanxiaol/windsurf-api:latest
+    image: ghcr.io/dwgx/windsurf-api:latest
     container_name: windsurf-api
     restart: always
     ports:
