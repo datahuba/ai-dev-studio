@@ -12,6 +12,7 @@ services:
       - PORT=3003
       - API_KEY=DataHubAnalytics2025
       - DASHBOARD_PASSWORD=DataHubAnalytics2025
+      - DATA_DIR=/opt/windsurf
     volumes:
       - /opt/windsurf:/opt/windsurf
     networks:
