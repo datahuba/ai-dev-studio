@@ -3,18 +3,13 @@ const http = require('http');
 const PORT = 3003;
 
 const server = http.createServer((req, res) => {
-  // Atrapamos cualquier POST hacia el proxy (LangChain añade automáticamente /chat/completions)
   if (req.method === 'POST') {
     let body = '';
-    
-    req.on('data', chunk => { 
-        body += chunk.toString(); 
-    });
+    req.on('data', chunk => { body += chunk.toString(); });
     
     req.on('end', () => {
       let responseContent = "¡Hola, equipo! Soy el Arquitecto de Software AI.\n\nPropongo estos pasos:\n1. Analizar `/workspace/datahub`.\n2. Auditar la base de datos MongoDB.\n3. Identificar componentes UI.";
 
-      // Analizamos el cuerpo de la petición para definir el contexto
       if (body.includes("Desarrollador Full-Stack")) {
         console.log('[Windsurf Proxy] Petición interceptada: Agente Desarrollador');
         responseContent = "He revisado el plan del Arquitecto. He implementado el endpoint en FastAPI y su correspondiente componente en SvelteKit. El código ha sido refactorizado en el entorno seguro.";
@@ -25,50 +20,31 @@ const server = http.createServer((req, res) => {
         console.log('[Windsurf Proxy] Petición interceptada: Agente Arquitecto');
       }
 
-      const reactFormatResponse = `Thought: Comprendo la tarea asignada y puedo entregar el resultado.\nFinal Answer: ${responseContent}`;
+      // El formato ReAct es obligatorio para que el parser de CrewAI no se rompa
+      const reactFormatResponse = `Thought: I now can give a great answer\nFinal Answer: ${responseContent}`;
 
-      // FORZAMOS cabeceras de Server-Sent Events (SSE) sin condicionales
+      // Forzamos cabeceras Server-Sent Events (SSE)
       res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive'
       });
 
-      const id = "chatcmpl-mock-" + Date.now();
+      const id = "chatcmpl-mock-123";
       const created = Math.floor(Date.now() / 1000);
 
-      const sendChunk = (delta, finish_reason) => {
-        const chunk = {
-          id: id,
-          object: "chat.completion.chunk",
-          created: created,
-          model: "gpt-4-turbo",
-          choices: [{ index: 0, delta: delta, finish_reason: finish_reason }]
-        };
-        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-      };
-
-      // Fragmento 1: Declaración del rol
-      sendChunk({ role: "assistant", content: "" }, null);
-
-      // Fragmento 2...N: Transmisión palabra por palabra (emulación de LLM real)
-      const words = reactFormatResponse.split(" ");
-      let i = 0;
-
-      const interval = setInterval(() => {
-        if (i < words.length) {
-          // Reconstruimos los espacios entre palabras
-          sendChunk({ content: words[i] + (i < words.length - 1 ? " " : "") }, null);
-          i++;
-        } else {
-          clearInterval(interval);
-          
-          // Fragmento Final: Señal de parada estricta requerida por OpenAI-Python
-          sendChunk({}, "stop");
-          res.write('data: [DONE]\n\n');
-          res.end();
-        }
-      }, 20); // 20 milisegundos de retraso entre cada token
+      // Bloque 1: Inicialización del rol
+      res.write(`data: ${JSON.stringify({id, object: "chat.completion.chunk", created, model: "gpt-4-turbo", choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }]})}\n\n`);
+      
+      // Bloque 2: Carga útil completa (sin usar delays que rompan la conexión)
+      res.write(`data: ${JSON.stringify({id, object: "chat.completion.chunk", created, model: "gpt-4-turbo", choices: [{ index: 0, delta: { content: reactFormatResponse }, finish_reason: null }]})}\n\n`);
+      
+      // Bloque 3: Señal de parada estricta de OpenAI
+      res.write(`data: ${JSON.stringify({id, object: "chat.completion.chunk", created, model: "gpt-4-turbo", choices: [{ index: 0, delta: {}, finish_reason: "stop" }]})}\n\n`);
+      
+      // Cierre del stream
+      res.write('data: [DONE]\n\n');
+      res.end();
     });
   } else {
     res.writeHead(404);

@@ -11,16 +11,16 @@ def main():
     api_base = os.getenv("WINDSURF_API_BASE", "http://windsurf-api:3003/v1")
     print(f"[*] Entorno inicializado. Configurando LLM hacia: {api_base}")
     
-    # Instanciación explícita del LLM para evitar fallos de lectura de variables de entorno
+    # Añadimos streaming=True explícito para alinear la expectativa del cliente con el proxy
     custom_llm = ChatOpenAI(
         api_key="sk-windsurf-dummy-token",
         base_url=api_base,
-        model_name="gpt-4-turbo"
+        model_name="gpt-4-turbo",
+        streaming=True
     )
 
     print("[*] Desplegando equipo de agentes AI Dev Studio...\n")
 
-    # 1. Agentes
     planner = Agent(
         role='Arquitecto de Software AI',
         goal='Diseñar la estructura base y los pasos a seguir para el desarrollo.',
@@ -48,7 +48,6 @@ def main():
         llm=custom_llm
     )
 
-    # 2. Tareas Secuenciales
     plan_task = Task(
         description='Analizar el requerimiento inicial y proponer un plan de acción de 3 pasos.',
         expected_output='Un plan en Markdown con 3 viñetas.',
@@ -67,7 +66,6 @@ def main():
         agent=qa_engineer
     )
 
-    # 3. Ensamblaje del Equipo (Crew)
     dev_crew = Crew(
         agents=[planner, developer, qa_engineer],
         tasks=[plan_task, code_task, qa_task],
@@ -75,7 +73,6 @@ def main():
         verbose=2
     )
 
-    # 4. Ejecución
     print("[*] Iniciando flujo secuencial del equipo. Procesando...")
     try:
         result = dev_crew.kickoff()
@@ -85,7 +82,6 @@ def main():
         print(result)
     except Exception as e:
         print(f"\n[!] Error general capturado: {e}")
-        # Impresión completa del stack de errores para debugging
         print(traceback.format_exc())
 
     print("\n[*] Ciclo de prueba finalizado. Pausando contenedor...")
