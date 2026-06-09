@@ -4,7 +4,8 @@
     container_name: ai-dev-studio-agents
     restart: always
     volumes:
-      - /home/ubuntu/datahub:/workspace/datahub
+      # Actualizado a la ruta del nuevo VPS Contabo
+      - /root/datahub:/workspace/datahub
       - .:/app
     environment:
       - WINDSURF_API_BASE=http://windsurf-api:3003/v1

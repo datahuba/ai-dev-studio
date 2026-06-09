@@ -6,54 +6,77 @@ from crewai import Agent, Task, Crew, Process
 def main():
     load_dotenv()
     
-    # 1. Configuración de Variables de Entorno para Intercepción de LLM
-    # Redirigimos el tráfico interno de LangChain/CrewAI hacia nuestro proxy Windsurf
     api_base = os.getenv("WINDSURF_API_BASE", "http://windsurf-api:3003/v1")
     os.environ["OPENAI_API_BASE"] = api_base
     os.environ["OPENAI_API_KEY"] = "sk-windsurf-dummy-token"
-    # Puedes ajustar el modelo según lo que devuelva tu proxy (ej. gpt-4, claude-3)
     os.environ["OPENAI_MODEL_NAME"] = "gpt-4-turbo" 
     
     print(f"[*] Entorno inicializado. Tráfico LLM redirigido a: {api_base}")
     print("[*] Desplegando equipo de agentes AI Dev Studio...\n")
 
-    # 2. Definición del Agente Planificador
+    # 1. Agentes
     planner = Agent(
         role='Arquitecto de Software AI',
-        goal='Diseñar la estructura base para el equipo autónomo de desarrollo.',
-        backstory='Eres un Arquitecto de Software Senior. Tu misión es asegurar que el código generado sea escalable y limpio.',
+        goal='Diseñar la estructura base y los pasos a seguir para el desarrollo.',
+        backstory='Eres un Arquitecto de Software Senior encargado de guiar al equipo.',
         verbose=True,
         allow_delegation=False
     )
 
-    # 3. Definición de la Tarea Inicial
+    developer = Agent(
+        role='Desarrollador Full-Stack',
+        goal='Escribir el código en FastAPI y SvelteKit siguiendo el plan del Arquitecto.',
+        backstory='Eres un desarrollador experto en Python y TypeScript.',
+        verbose=True,
+        allow_delegation=False
+    )
+
+    qa_engineer = Agent(
+        role='Ingeniero de QA',
+        goal='Revisar el código generado, buscar bugs y asegurar la calidad.',
+        backstory='Eres un auditor de código riguroso que no deja pasar ninguna falla.',
+        verbose=True,
+        allow_delegation=False
+    )
+
+    # 2. Tareas Secuenciales
     plan_task = Task(
-        description='Escribe un breve saludo identificándote como el Arquitecto del proyecto y propón 3 pasos iniciales para analizar el código local de DataHub.',
-        expected_output='Un breve esquema en formato Markdown con el saludo y 3 viñetas técnicas.',
+        description='Analizar el requerimiento inicial y proponer un plan de acción de 3 pasos.',
+        expected_output='Un plan en Markdown con 3 viñetas.',
         agent=planner
     )
 
-    # 4. Ensamblaje del Equipo (Crew)
+    code_task = Task(
+        description='Basado en el plan del Arquitecto, escribe el código necesario.',
+        expected_output='Código fuente implementado.',
+        agent=developer
+    )
+
+    qa_task = Task(
+        description='Revisa el código entregado por el desarrollador y emite un veredicto.',
+        expected_output='Un reporte de QA aprobando o rechazando el código.',
+        agent=qa_engineer
+    )
+
+    # 3. Ensamblaje del Equipo (Crew)
     dev_crew = Crew(
-        agents=[planner],
-        tasks=[plan_task],
+        agents=[planner, developer, qa_engineer],
+        tasks=[plan_task, code_task, qa_task],
         process=Process.sequential,
         verbose=2
     )
 
-    # 5. Ejecución del Flujo
-    print("[*] Iniciando ejecución de la tarea. Esperando respuesta del LLM...")
+    # 4. Ejecución
+    print("[*] Iniciando flujo secuencial del equipo. Procesando...")
     try:
         result = dev_crew.kickoff()
         print("\n==========================================")
-        print("RESULTADO DEL AGENTE:")
+        print("RESULTADO FINAL DEL EQUIPO (Reporte de QA):")
         print("==========================================")
         print(result)
     except Exception as e:
-        print(f"\n[!] Error durante la ejecución del agente: {e}")
-        print("[!] Nota: Verifica que el contenedor 'windsurf-api' esté respondiendo y devolviendo tokens válidos.")
+        print(f"\n[!] Error durante la ejecución del equipo: {e}")
 
-    # 6. Prevención de reinicios en bucle de Docker
     print("\n[*] Ciclo de prueba finalizado. Pausando contenedor...")
     while True:
         time.sleep(3600)
