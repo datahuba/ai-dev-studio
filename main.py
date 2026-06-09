@@ -76,10 +76,8 @@ def main():
         with open(report_path, "a", encoding="utf-8") as f:
             f.write("- Equipo orquestado. Llamando al proxy WindsurfAPI (kickoff)...\n\n")
 
-        # Intentar ejecutar el equipo
         result = ai_crew.kickoff()
         
-        # Si tiene éxito, se sobrescribe con el reporte oficial
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(str(result))
             
@@ -89,13 +87,12 @@ def main():
         error_msg = str(e)
         error_trace = traceback.format_exc()
         
-        # Interceptar el error específico del proxy sin cuentas
         if "No active accounts" in error_msg or "503" in error_msg:
             mensaje_amigable = (
                 "# ⚠️ Configuración Pendiente: Proxy Sin Cuentas\n\n"
                 "El orquestador logró conectarse al proxy `windsurf-api`, pero este respondió con un error `503 No active accounts`.\n\n"
                 "**Pasos para resolverlo:**\n"
-                "1. Abre tu navegador web e ingresa a `http://<IP_DE_TU_VPS>:3003`\n"
+                "1. Abre tu navegador web e ingresa a `http://<IP_DE_TU_VPS>:3003/dashboard`\n"
                 "2. Inicia sesión usando la clave configurada en el docker-compose (`tu_clave_secreta_vps_3003`).\n"
                 "3. Añade al menos una cuenta gratuita (siguiendo las instrucciones del panel para registrar tokens de Windsurf/Codeium).\n"
                 "4. Una vez añadida la cuenta en el panel, reinicia este contenedor ejecutando en tu terminal SSH:\n"
@@ -105,7 +102,6 @@ def main():
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(mensaje_amigable)
         else:
-            # Para cualquier otro error imprevisto
             with open(report_path, "a", encoding="utf-8") as f:
                 f.write("\n## ❌ Error Fatal del Contenedor\n")
                 f.write("El script colapsó en tiempo de ejecución. Detalle del Stack Trace:\n")
