@@ -32,6 +32,11 @@ jobs:
           git checkout -B develop_kevin origin/develop_kevin
           git reset --hard origin/develop_kevin
           
+          if [ ! -f ".env" ]; then
+            echo "WINDSURF_API_URL=http://windsurf-api:3003/v1" > .env
+            echo "WINDSURF_API_KEY=your_token_here" >> .env
+          fi
+          
           docker network ls | grep -q windsurf_network || docker network create windsurf_network
           
           docker-compose down || true
