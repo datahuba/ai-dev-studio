@@ -16,7 +16,9 @@ def main():
     try:
         from dotenv import load_dotenv
         from crewai import Agent, Task, Crew, Process
-        from crewai_tools import FileWriteTool
+        
+        # Corrección: El nombre oficial de la clase en crewai_tools es FileWriterTool
+        from crewai_tools import FileWriterTool
         
         load_dotenv()
         
@@ -37,8 +39,8 @@ def main():
         workspace_kyc_backend = "/workspace/datahub/kyc/backend"
         os.makedirs(workspace_kyc_backend, exist_ok=True)
         
-        # 2. Inicializar la herramienta de escritura con permisos sobre la carpeta del proyecto
-        file_writer = FileWriteTool()
+        # 2. Inicializar la herramienta de escritura con permisos
+        file_writer = FileWriterTool()
 
         with open(report_path, "a", encoding="utf-8") as f:
             f.write("- Herramientas listas. Orquestando al Desarrollador para escribir código real...\n\n")
@@ -46,7 +48,7 @@ def main():
         fullstack_dev = Agent(
             role='Desarrollador Backend Senior',
             goal='Escribir archivos de código en Python (FastAPI) directamente en el disco duro del servidor.',
-            backstory=f'Eres un desarrollador meticuloso. Tienes acceso a herramientas de escritura. Reglas técnicas obligatorias:\n{backend_rules}',
+            backstory=f'Eres un desarrollador meticuloso. Debes USAR OBLIGATORIAMENTE tu herramienta FileWriterTool para guardar el código en el disco duro. Reglas técnicas obligatorias:\n{backend_rules}',
             verbose=True,
             allow_delegation=False,
             tools=[file_writer]
@@ -55,10 +57,10 @@ def main():
         coding_task = Task(
             description=(
                 'Crea los dos archivos iniciales del backend para el módulo KyC basándote en la arquitectura previa.\n'
-                f'Utiliza la herramienta `FileWriteTool` para escribir los archivos físicamente en la ruta: {workspace_kyc_backend}/\n'
+                f'Utiliza tu herramienta `FileWriterTool` para escribir físicamente los archivos en la ruta: {workspace_kyc_backend}/\n'
                 '1. Escribe el archivo `main.py` configurando FastAPI, Uvicorn, GZipMiddleware y el lifespan de Beanie.\n'
                 '2. Escribe el archivo `models.py` creando un esquema Pydantic v2 básico para el modelo User.\n'
-                'Importante: Escribe el código COMPLETO, sin omitir partes ni dejar comentarios de relleno.'
+                'Importante: Escribe el código COMPLETO en cada archivo, sin omitir partes ni dejar comentarios de relleno.'
             ),
             expected_output='Un reporte detallando el nombre y ruta de los archivos que se han creado exitosamente en el servidor.',
             agent=fullstack_dev
@@ -80,6 +82,11 @@ def main():
 
     except Exception as e:
         error_trace = traceback.format_exc()
+        # Forzar la impresión del error en la consola de Docker para evitar fallos "ciegos"
+        print("\n=== ❌ ERROR FATAL DETECTADO ===")
+        print(error_trace)
+        print("================================\n")
+        
         with open(report_path, "a", encoding="utf-8") as f:
             f.write("\n## ❌ Error Fatal del Contenedor\n")
             f.write(f"```python\n{error_trace}\n```\n")
