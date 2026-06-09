@@ -34,10 +34,9 @@ jobs:
           
           if [ ! -f ".env" ]; then
             echo "WINDSURF_API_URL=http://windsurf-api:3003/v1" > .env
-            echo "WINDSURF_API_KEY=your_token_here" >> .env
+            echo "WINDSURF_API_KEY=tu_clave_secreta_vps_3003" >> .env
           fi
-          
-          docker network ls | grep -q windsurf_network || docker network create windsurf_network
           
           docker-compose down || true
           docker-compose up -d --build
+          
