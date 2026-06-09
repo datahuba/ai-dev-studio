@@ -10,7 +10,7 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
-      - API_KEY=tu_clave_secreta_vps_3003
+      - API_KEY=DataHubAnalytics2025
     volumes:
       - /opt/windsurf:/opt/windsurf
     networks:
