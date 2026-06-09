@@ -4,19 +4,22 @@ import traceback
 
 def main():
     output_dir = "/app/output"
+    memory_dir = "/app/memory"
     os.makedirs(output_dir, exist_ok=True)
-    report_path = os.path.join(output_dir, "frontend_creation_report.md")
+    os.makedirs(memory_dir, exist_ok=True)
     
-    try:
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write("# Estado de AI Dev Studio\nIniciando el contenedor. Cargando herramientas físicas...\n\n")
-    except Exception as e:
-        pass
+    report_path = os.path.join(output_dir, "sprint_report.md")
+    prompt_path = os.path.join(memory_dir, "prompt.txt")
+    
+    # Si no existe un archivo de instrucciones, creamos uno de ejemplo por defecto
+    if not os.path.exists(prompt_path):
+        with open(prompt_path, "w", encoding="utf-8") as f:
+            f.write("Instrucción para la IA: Lee el archivo /workspace/datahub/kyc/frontend/src/routes/+page.svelte y agrégale un botón de color rojo que reinicie la variable 'name' a su estado original.")
 
     try:
         from dotenv import load_dotenv
         from crewai import Agent, Task, Crew, Process
-        from crewai_tools import FileWriterTool
+        from crewai_tools import FileWriterTool, FileReadTool
         
         load_dotenv()
         
@@ -31,52 +34,78 @@ def main():
                     return f.read()
             return ""
 
+        backend_rules = load_skill("backend-rules.md")
         frontend_rules = load_skill("frontend-rules.md")
         
-        # 1. Preparar el terreno físico para el Frontend en el volumen montado
-        workspace_kyc_frontend = "/workspace/datahub/kyc/frontend"
-        os.makedirs(workspace_kyc_frontend, exist_ok=True)
-        # SvelteKit requiere una estructura específica de carpetas (src/routes)
-        os.makedirs(os.path.join(workspace_kyc_frontend, "src", "routes"), exist_ok=True)
-        
-        # 2. Inicializar la herramienta de escritura con permisos
+        # Leer la instrucción dinámica del usuario
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            user_prompt = f.read().strip()
+            
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(f"# AI Dev Studio - Nuevo Sprint\n**Instrucción recibida:** {user_prompt}\n\n")
+
+        # Inicializar herramientas físicas
         file_writer = FileWriterTool()
+        file_reader = FileReadTool()
 
-        with open(report_path, "a", encoding="utf-8") as f:
-            f.write("- Herramientas listas. Orquestando al Desarrollador para escribir código Frontend Svelte 5...\n\n")
-
-        fullstack_dev = Agent(
-            role='Desarrollador Frontend Senior',
-            goal='Escribir archivos de código en TypeScript y Svelte 5 directamente en el disco duro del servidor.',
-            backstory=f'Eres un desarrollador Frontend SvelteKit meticuloso. Debes USAR OBLIGATORIAMENTE la herramienta FileWriterTool. Reglas técnicas obligatorias:\n{frontend_rules}',
+        # 1. Agente Planificador
+        planner = Agent(
+            role='Arquitecto de Software y Planificador',
+            goal='Analizar la solicitud del usuario y definir qué archivos del sistema deben modificarse.',
+            backstory=f'Eres Janus. Tu labor es guiar al equipo respetando estas reglas:\n{backend_rules}\n{frontend_rules}',
             verbose=True,
-            allow_delegation=False,
-            tools=[file_writer]
+            allow_delegation=False
         )
 
-        coding_task = Task(
-            description=(
-                'Crea los tres archivos iniciales del frontend para el módulo KyC.\n'
-                f'Utiliza tu herramienta `FileWriterTool` para escribir físicamente los archivos en la ruta raíz: {workspace_kyc_frontend}/\n'
-                '1. Escribe `svelte.config.js` (en la raíz del frontend) configurando @sveltejs/adapter-node.\n'
-                '2. Escribe `src/routes/+layout.ts` configurando obligatoriamente `ssr = false` y `prerender = false`.\n'
-                '3. Escribe `src/routes/+page.svelte` creando una vista de bienvenida básica que implemente un estado reactivo usando Svelte 5 Runes (`$state`).\n'
-                'Importante: Escribe el código COMPLETO en cada archivo, sin omitir partes ni dejar comentarios de relleno.'
-            ),
-            expected_output='Un reporte detallando el nombre y ruta de los archivos que se han creado exitosamente en el frontend.',
-            agent=fullstack_dev
+        # 2. Agente Desarrollador (Ahora puede LEER y ESCRIBIR)
+        developer = Agent(
+            role='Desarrollador Full-Stack Senior',
+            goal='Leer el código existente y escribir las modificaciones requeridas en el disco duro.',
+            backstory='Tienes acceso al sistema de archivos. Usa FileReadTool para entender el código actual y FileWriterTool para aplicar cambios. NUNCA resumas código, escríbelo completo.',
+            verbose=True,
+            allow_delegation=False,
+            tools=[file_reader, file_writer]
+        )
+
+        # 3. Agente QA (Auditor de Calidad)
+        qa_engineer = Agent(
+            role='Ingeniero de Calidad y Seguridad (QA)',
+            goal='Verificar que el código escrito por el desarrollador funcione y cumpla con las reglas del framework.',
+            backstory='Eres el filtro final. Usas FileReadTool para leer lo que el desarrollador escribió y garantizas que cumpla con Svelte 5 y FastAPI.',
+            verbose=True,
+            allow_delegation=False,
+            tools=[file_reader]
+        )
+
+        # Tareas secuenciales
+        plan_task = Task(
+            description=f'Analiza la siguiente instrucción del usuario: "{user_prompt}". Crea un plan paso a paso indicando qué rutas absolutas en /workspace/datahub/ deben leerse y modificarse.',
+            expected_output='Un plan de acción con la lista de archivos a afectar.',
+            agent=planner
+        )
+
+        dev_task = Task(
+            description='Ejecuta el plan del Planificador. 1) Usa FileReadTool para leer los archivos necesarios. 2) Usa FileWriterTool para escribir el nuevo código. IMPORTANTE: Usa rutas absolutas (/workspace/datahub/...).',
+            expected_output='Confirmación de los archivos escritos exitosamente.',
+            agent=developer
+        )
+
+        qa_task = Task(
+            description='Usa FileReadTool para leer los archivos que el desarrollador acaba de modificar en este sprint. Verifica que no haya código truncado y redacta el reporte final.',
+            expected_output='Un reporte de auditoría en Markdown indicando si el código implementado es apto para producción.',
+            agent=qa_engineer
         )
 
         ai_crew = Crew(
-            agents=[fullstack_dev],
-            tasks=[coding_task],
+            agents=[planner, developer, qa_engineer],
+            tasks=[plan_task, dev_task, qa_task],
             process=Process.sequential,
             verbose=True
         )
         
         result = ai_crew.kickoff()
         
-        with open(report_path, "w", encoding="utf-8") as f:
+        with open(report_path, "a", encoding="utf-8") as f:
             f.write(str(result))
             
         print(f"Ciclo finalizado. Reporte de código generado en {report_path}")
