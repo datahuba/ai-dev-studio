@@ -36,9 +36,6 @@ jobs:
           echo "WINDSURF_API_URL=http://windsurf-api:3003/v1" > .env
           echo "WINDSURF_API_KEY=DataHubAnalytics2025" >> .env
           
-          # Limpiar la cache de configuracion persistente del proxy
-          rm -rf /opt/windsurf/*
-          
           docker-compose down || true
           docker-compose up -d --build
           
