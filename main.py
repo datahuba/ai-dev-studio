@@ -4,6 +4,24 @@ import time
 import traceback
 from dotenv import load_dotenv
 
+def list_existing_projects():
+    """Escanea el directorio sandbox y lista los proyectos creados por la IA."""
+    projects_dir = "/workspace/projects"
+    print("📁 Directorio de Proyectos Sandbox (/root/ai-dev-projects/):")
+    if os.path.exists(projects_dir):
+        try:
+            projects = [d for d in os.listdir(projects_dir) if os.path.isdir(os.path.join(projects_dir, d))]
+            if projects:
+                for p in projects:
+                    print(f"  └── 📂 {p}")
+            else:
+                print("  (Aún no hay proyectos creados en el Sandbox)")
+        except Exception as e:
+            print(f"  (No se pudo escanear el directorio: {str(e)})")
+    else:
+        print("  (Directorio Sandbox no inicializado)")
+    print("--------------------------------------------------------")
+
 def run_sprint(user_prompt):
     output_dir = "/app/output"
     os.makedirs(output_dir, exist_ok=True)
@@ -23,7 +41,7 @@ def run_sprint(user_prompt):
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
                     return f.read()
-            return ""
+                return ""
 
         backend_rules = load_skill("backend-rules.md")
         frontend_rules = load_skill("frontend-rules.md")
@@ -127,10 +145,7 @@ def main():
     print("\n========================================================")
     print("   🤖 BIENVENIDO AL PANEL INTERACTIVO DE AI DEV STUDIO  ")
     print("========================================================")
-    print("Cualquier código nuevo se creará de forma aislada en:")
-    print("--> VPS: /root/ai-dev-projects/")
-    print("El proyecto productivo 'datahub' está protegido en SOLO-LECTURA (ro).")
-    print("--------------------------------------------------------")
+    list_existing_projects()
     
     try:
         user_prompt = input("\nIngrese su requerimiento o instrucción: ")
