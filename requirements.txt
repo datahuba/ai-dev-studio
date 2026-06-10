@@ -1,4 +1,7 @@
-﻿crewai==0.28.8
-langchain==0.1.16
-pydantic==2.7.0
-python-dotenv==1.0.1
+﻿crewai
+crewai-tools
+litellm
+langchain-openai
+turbovec
+memanto
+python-dotenv

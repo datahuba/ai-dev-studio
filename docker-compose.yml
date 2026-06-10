@@ -1,27 +1,45 @@
-﻿services:
-  ai-agents:
-    build: .
-    container_name: ai-dev-studio-agents
-    restart: always
-    volumes:
-      - /home/ubuntu/datahub:/workspace/datahub
-      - .:/app
-    environment:
-      - WINDSURF_API_BASE=http://windsurf-api:3003/v1
-    networks:
-      - ai-network
+﻿version: '3.8'
 
+services:
+  # 1. Proxy de IA (Windsurf API)
   windsurf-api:
-    image: node:18-alpine
-    container_name: windsurf-api-proxy
+    image: ghcr.io/dwgx/windsurf-api:latest
+    container_name: windsurf-api
     restart: always
     ports:
       - "3003:3003"
+    environment:
+      - PORT=3003
+      - API_KEY=DataHubAnalytics2025
+      - DASHBOARD_PASSWORD=DataHubAnalytics2025
+      - DATA_DIR=/opt/windsurf
+    volumes:
+      - /opt/windsurf:/opt/windsurf
     networks:
-      - ai-network
-    # Comando o script interno de inicialización requerido en el futuro
-    command: ["echo", "Proxy service pending real implementation"]
+      - ai_network
+
+  # 2. Orquestador de Agentes (AI Dev Studio)
+  ai-dev-studio:
+    build: .
+    container_name: ai-dev-studio
+    restart: always
+    depends_on:
+      - windsurf-api
+    # Mantenemos el contenedor vivo esperando instrucciones por consola
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      # El proyecto productivo queda protegido en modo SOLO-LECTURA (ro) para contexto
+      - /root/datahub:/workspace/datahub:ro
+      # Directorio sandbox aislado donde los agentes crearán nuevos proyectos desde cero
+      - /root/ai-dev-projects:/workspace/projects
+      - ./memory:/app/memory
+      - ./output:/app/output
+    env_file:
+      - .env
+    networks:
+      - ai_network
 
 networks:
-  ai-network:
+  ai_network:
     driver: bridge
+    

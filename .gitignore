@@ -1,11 +1,7 @@
-﻿__pycache__/
-*.py[cod]
-*.class
-.env
-.venv/
-venv/
-ENV/
-env/
+﻿.env
+__pycache__/
+*.pyc
 .pytest_cache/
-.coverage
-htmlcov/
+memory/
+output/
+init_project.ps1
