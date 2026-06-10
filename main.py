@@ -31,7 +31,7 @@ def classify_task(user_prompt):
     classifier_llm = ChatOpenAI(
         base_url=os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1"),
         api_key=os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025"),
-        model="gemini-2.5-flash", # Usamos Gemini Flash por su velocidad de clasificación
+        model="gemini-2.5-flash",
         temperature=0.0
     )
     
@@ -62,14 +62,12 @@ def classify_task(user_prompt):
             {"role": "user", "content": user_prompt}
         ])
         
-        # Extraer JSON mediante expresiones regulares por seguridad
         match = re.search(r"\{.*\}", response.content, re.DOTALL)
         if match:
             return json.loads(match.group(0))
     except Exception as e:
         print(f"[Enrutador] Error de clasificación: {str(e)}. Usando fallback de seguridad...")
     
-    # Fallback conservador si falla el clasificador
     return {
         "reasoning": "Fallback por fallo en el clasificador.",
         "requires_planning": True,
@@ -100,7 +98,7 @@ def run_sprint(user_prompt):
         os.environ["OPENAI_MODEL_NAME"] = "openai/gemini-2.5-flash"
         os.environ["CREWAI_TOOLS_ALLOW_UNSAFE_PATHS"] = "true"
         
-        # 2. Cargar dinámicamente solo los Skills requeridos (Ahorro de tokens de contexto)
+        # Cargar dinámicamente solo los Skills requeridos
         def load_skill(file_name):
             path = os.path.join(os.path.dirname(__file__), 'skills', file_name)
             if os.path.exists(path):
@@ -114,20 +112,24 @@ def run_sprint(user_prompt):
         if "frontend" in config["skills_needed"]:
             context_rules += "\n" + load_skill("frontend-rules.md")
 
-        # Inicializar herramientas
-        file_writer = FileWriterTool()
+        # Asegurar el directorio sandbox
+        os.makedirs("/workspace/projects", exist_ok=True)
+        
+        # 2. Corrección: Anclamos el FileWriterTool al directorio raíz del sandbox
+        # Esto prohíbe que los agentes alucinen rutas como "<workspace>" o carpetas fuera de allí.
+        file_writer = FileWriterTool(directory="/workspace/projects")
         file_reader = FileReadTool()
         
         active_agents = []
         active_tasks = []
 
-        # 3. Ensamblado Dinámico de Agentes (On-Demand)
+        # 3. Ensamblado Dinámico de Agentes e instrucciones adaptativas (On-Demand)
         # Planificador (Janus)
         if config["requires_planning"]:
             janus_planner = Agent(
                 role='Arquitecto de Software y Planificador',
                 goal='Analizar requerimientos y diseñar la estructura lógica de los nuevos archivos.',
-                backstory=f'Eres Janus. Diseñas soluciones limpias en /workspace/projects/. Reglas aplicables:\n{context_rules}',
+                backstory=f'Eres Janus. Diseñas soluciones limpias en la raíz del sandbox. Reglas aplicables:\n{context_rules}',
                 verbose=True,
                 allow_delegation=True
             )
@@ -144,13 +146,29 @@ def run_sprint(user_prompt):
             fullstack_dev = Agent(
                 role='Desarrollador Full-Stack Senior',
                 goal='Escribir código completo y limpio basándose en planos técnicos.',
-                backstory=f'Codificador veloz. Creas código real en /workspace/projects/ con FileWriterTool basándote en:\n{context_rules}',
+                backstory='Eres un codificador veloz y preciso. Lees con FileReadTool y creas código real con FileWriterTool.',
                 verbose=True,
                 allow_delegation=False,
                 tools=[file_reader, file_writer]
             )
+            
+            # Corrección: Modificamos la tarea dinámicamente según si Janus participó o no.
+            # Evita que el desarrollador busque un plan inexistente y caiga en placeholders.
+            if config["requires_planning"]:
+                dev_description = (
+                    'Sigue el plan de desarrollo diseñado por Janus.\n'
+                    'Crea y escribe el código fuente de los archivos requeridos bajo la carpeta de la herramienta.\n'
+                    'Asegúrate de que el código esté 100% completo.'
+                )
+            else:
+                dev_description = (
+                    f'Analiza directamente el requerimiento del usuario: "{user_prompt}".\n'
+                    'Crea y escribe el código fuente de los archivos necesarios utilizando FileWriterTool.\n'
+                    'Escribe directamente en el directorio asignado por la herramienta.'
+                )
+
             task_dev = Task(
-                description=f'Escribe el código fuente completo de los archivos requeridos para satisfacer la instrucción: "{user_prompt}" bajo /workspace/projects/. No uses código truncado.',
+                description=dev_description,
                 expected_output='Resumen de archivos de código creados en el disco duro.',
                 agent=fullstack_dev
             )
@@ -162,13 +180,13 @@ def run_sprint(user_prompt):
             qa_engineer = Agent(
                 role='Ingeniero de Calidad y Seguridad (QA)',
                 goal='Auditar el código producido, validar la sintaxis y asegurar que no haya omisiones.',
-                backstory='Auditor estricto. Usas FileReadTool para inspeccionar los archivos modificados en /workspace/projects/.',
+                backstory='Auditor estricto. Usas FileReadTool para inspeccionar los archivos modificados bajo la ruta de la herramienta.',
                 verbose=True,
                 allow_delegation=False,
                 tools=[file_reader]
             )
             task_qa = Task(
-                description='Inspecciona los archivos fuente creados en /workspace/projects/ usando FileReadTool. Verifica sintaxis y buenas prácticas.',
+                description='Inspecciona los archivos fuente creados bajo el sandbox usando FileReadTool. Verifica sintaxis y buenas prácticas.',
                 expected_output='Vedicto de QA indicando si el código es seguro y completo.',
                 agent=qa_engineer
             )
@@ -180,25 +198,24 @@ def run_sprint(user_prompt):
             devops_engineer = Agent(
                 role='Ingeniero DevOps Senior',
                 goal='Configurar el entorno de ejecución, Dockerfiles y compose para los nuevos proyectos.',
-                backstory='Automatizas entornos. Creas archivos de configuración (Dockerfile, compose, Nginx) en /workspace/projects/ usando FileWriterTool.',
+                backstory='Automatizas entornos. Creas archivos de configuración (Dockerfile, compose, Nginx) usando la herramienta FileWriterTool.',
                 verbose=True,
                 allow_delegation=False,
                 tools=[file_writer]
             )
             task_devops = Task(
-                description=f'Crea los entornos de infraestructura (Dockerfiles/docker-compose) requeridos para el proyecto en /workspace/projects/ basándote en: "{user_prompt}".',
+                description=f'Crea los entornos de infraestructura (Dockerfiles/docker-compose) requeridos para el proyecto bajo la ruta de la herramienta basándote en: "{user_prompt}".',
                 expected_output='Confirmación de los archivos de infraestructura creados.',
                 agent=devops_engineer
             )
             active_agents.append(devops_engineer)
             active_tasks.append(task_devops)
 
-        # 4. Autocreación Dinámica de Agentes Especialistas (On-The-Fly)
+        # Autocreación Dinámica de Agentes Especialistas (On-The-Fly)
         if config["custom_agent"]["needed"]:
             custom_spec = config["custom_agent"]
             print(f"[Enrutador] 🚀 AUTOCREANDO AGENTE ESPECIALISTA: {custom_spec['role']}")
             
-            # Decidir qué herramientas necesita el especialista según el contexto
             spec_tools = [file_reader, file_writer] if config["requires_coding"] else [file_reader]
             
             specialist_agent = Agent(
@@ -217,12 +234,11 @@ def run_sprint(user_prompt):
             active_agents.append(specialist_agent)
             active_tasks.append(task_specialist)
 
-        # Validar si hay agentes activos para evitar llamados vacíos
         if not active_agents:
             print("[Enrutador] No se requiere la intervención de ningún agente para esta tarea.")
             return
 
-        # 5. Ejecutar la Crew Optimizada
+        # Ejecutar la Crew Optimizada
         print(f"[Enrutador] Iniciando Crew optimizada con {len(active_agents)} agentes activos (Ahorro de recursos activo)...")
         ai_crew = Crew(
             agents=active_agents,
@@ -234,7 +250,7 @@ def run_sprint(user_prompt):
         result = ai_crew.kickoff()
         execution_time = time.time() - start_time
 
-        # 6. Generar Bitácora del Consumo de Recursos
+        # Generar Bitácora del Consumo de Recursos
         bitacora_content = (
             "# 📋 BÍTÁCORA DE EJECUCIÓN Y CONSUMO DE RECURSOS\n\n"
             f"**Instrucción Procesada:** `{user_prompt}`\n"
