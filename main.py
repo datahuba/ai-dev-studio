@@ -164,7 +164,6 @@ def run_sprint(user_prompt):
         active_tasks = []
 
         # 3. Ensamblado Dinámico de Agentes e instrucciones adaptativas (On-Demand)
-        # Planificador (Janus)
         if config["requires_planning"]:
             janus_planner = Agent(
                 role='Arquitecto de Software y Planificador',
@@ -181,7 +180,6 @@ def run_sprint(user_prompt):
             active_agents.append(janus_planner)
             active_tasks.append(task_plan)
 
-        # Coder (Desarrollador)
         if config["requires_coding"]:
             fullstack_dev = Agent(
                 role='Desarrollador Full-Stack Senior',
@@ -213,7 +211,6 @@ def run_sprint(user_prompt):
             active_agents.append(fullstack_dev)
             active_tasks.append(task_dev)
 
-        # Auditor de QA
         if config["requires_qa"]:
             qa_engineer = Agent(
                 role='Ingeniero de Calidad y Seguridad (QA)',
@@ -231,7 +228,6 @@ def run_sprint(user_prompt):
             active_agents.append(qa_engineer)
             active_tasks.append(task_qa)
 
-        # Ingeniero DevOps
         if config["requires_devops"]:
             devops_engineer = Agent(
                 role='Ingeniero DevOps Senior',
@@ -249,7 +245,6 @@ def run_sprint(user_prompt):
             active_agents.append(devops_engineer)
             active_tasks.append(task_devops)
 
-        # Autocreación Dinámica de Agentes Especialistas (On-The-Fly)
         if config["custom_agent"]["needed"]:
             custom_spec = config["custom_agent"]
             print(f"[Enrutador] 🚀 AUTOCREANDO AGENTE ESPECIALISTA: {custom_spec['role']}")
@@ -276,7 +271,6 @@ def run_sprint(user_prompt):
             print("[Enrutador] No se requiere la intervención de ningún agente para esta tarea.")
             return
 
-        # Ejecutar la Crew Optimizada
         print(f"[Enrutador] Iniciando Crew optimizada con {len(active_agents)} agentes activos (Ahorro de recursos activo)...")
         ai_crew = Crew(
             agents=active_agents,
