@@ -86,7 +86,7 @@ def run_sprint(user_prompt):
 
     try:
         from crewai import Agent, Task, Crew, Process
-        from crewai_tools import FileWriterTool, FileReadTool
+        from crewai.tools import tool
         
         # 1. Ejecutar clasificación dinámica de la tarea
         print("\n[Enrutador] Analizando requerimiento para optimizar uso de memoria y VPS...")
@@ -96,7 +96,6 @@ def run_sprint(user_prompt):
         os.environ["OPENAI_API_BASE"] = os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1")
         os.environ["OPENAI_API_KEY"] = os.getenv("WINDSURF_API_KEY", "DataHubAnalytics2025")
         os.environ["OPENAI_MODEL_NAME"] = "openai/gemini-2.5-flash"
-        os.environ["CREWAI_TOOLS_ALLOW_UNSAFE_PATHS"] = "true"
         
         # Cargar dinámicamente solo los Skills requeridos
         def load_skill(file_name):
@@ -115,10 +114,51 @@ def run_sprint(user_prompt):
         # Asegurar el directorio sandbox
         os.makedirs("/workspace/projects", exist_ok=True)
         
-        # 2. Corrección: Anclamos el FileWriterTool al directorio raíz del sandbox
-        # Esto prohíbe que los agentes alucinen rutas como "<workspace>" o carpetas fuera de allí.
-        file_writer = FileWriterTool(directory="/workspace/projects")
-        file_reader = FileReadTool()
+        # 2. DEFINICIÓN DE HERRAMIENTAS PERSONALIZADAS (CUSTOM TOOLS) CON RUTAS SEGURAS
+        @tool("write_file")
+        def write_file(filename: str, content: str, subdir: str = "") -> str:
+            """Escribe contenido directamente en un archivo dentro del directorio sandbox (/workspace/projects).
+            Args:
+                filename: Nombre del archivo a crear (ej: 'main.py' o 'docker-compose.yml').
+                content: El contenido de texto completo que se escribirá en el archivo.
+                subdir: Subcarpeta opcional dentro del sandbox (ej: 'backend' o 'frontend').
+            """
+            base_dir = "/workspace/projects"
+            target_dir = os.path.join(base_dir, subdir) if subdir else base_dir
+            os.makedirs(target_dir, exist_ok=True)
+            filepath = os.path.join(target_dir, filename)
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(content)
+                return f"Content successfully written to {filepath}"
+            except Exception as e:
+                return f"Error writing file: {str(e)}"
+
+        @tool("read_file")
+        def read_file(filename: str, subdir: str = "") -> str:
+            """Lee el contenido de un archivo en el directorio sandbox o en la carpeta de referencia de DataHub.
+            Args:
+                filename: Nombre del archivo a leer.
+                subdir: Subcarpeta opcional de contexto (ej: 'kyc/backend' o 'frontend').
+            """
+            # Primero intenta leer del sandbox de proyectos
+            base_dir = "/workspace/projects"
+            target_dir = os.path.join(base_dir, subdir) if subdir else base_dir
+            filepath = os.path.join(target_dir, filename)
+            
+            # Si no existe, intenta leer de DataHub (Contexto protegido de Solo Lectura)
+            if not os.path.exists(filepath):
+                base_dir = "/workspace/datahub"
+                target_dir = os.path.join(base_dir, subdir) if subdir else base_dir
+                filepath = os.path.join(target_dir, filename)
+                
+            try:
+                if os.path.exists(filepath):
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        return f.read()
+                return f"File not found: {filepath}"
+            except Exception as e:
+                return f"Error reading file: {str(e)}"
         
         active_agents = []
         active_tasks = []
@@ -146,14 +186,12 @@ def run_sprint(user_prompt):
             fullstack_dev = Agent(
                 role='Desarrollador Full-Stack Senior',
                 goal='Escribir código completo y limpio basándose en planos técnicos.',
-                backstory='Eres un codificador veloz y preciso. Lees con FileReadTool y creas código real con FileWriterTool.',
+                backstory='Eres un codificador veloz y preciso. Lees con read_file y creas código real en /workspace/projects/ con write_file.',
                 verbose=True,
                 allow_delegation=False,
-                tools=[file_reader, file_writer]
+                tools=[read_file, write_file]
             )
             
-            # Corrección: Modificamos la tarea dinámicamente según si Janus participó o no.
-            # Evita que el desarrollador busque un plan inexistente y caiga en placeholders.
             if config["requires_planning"]:
                 dev_description = (
                     'Sigue el plan de desarrollo diseñado por Janus.\n'
@@ -163,7 +201,7 @@ def run_sprint(user_prompt):
             else:
                 dev_description = (
                     f'Analiza directamente el requerimiento del usuario: "{user_prompt}".\n'
-                    'Crea y escribe el código fuente de los archivos necesarios utilizando FileWriterTool.\n'
+                    'Crea y escribe el código fuente de los archivos necesarios utilizando write_file.\n'
                     'Escribe directamente en el directorio asignado por la herramienta.'
                 )
 
@@ -180,13 +218,13 @@ def run_sprint(user_prompt):
             qa_engineer = Agent(
                 role='Ingeniero de Calidad y Seguridad (QA)',
                 goal='Auditar el código producido, validar la sintaxis y asegurar que no haya omisiones.',
-                backstory='Auditor estricto. Usas FileReadTool para inspeccionar los archivos modificados bajo la ruta de la herramienta.',
+                backstory='Auditor estricto. Usas read_file para inspeccionar los archivos modificados en /workspace/projects/.',
                 verbose=True,
                 allow_delegation=False,
-                tools=[file_reader]
+                tools=[read_file]
             )
             task_qa = Task(
-                description='Inspecciona los archivos fuente creados bajo el sandbox usando FileReadTool. Verifica sintaxis y buenas prácticas.',
+                description='Inspecciona los archivos fuente creados bajo el sandbox usando read_file. Verifica sintaxis y buenas prácticas.',
                 expected_output='Vedicto de QA indicando si el código es seguro y completo.',
                 agent=qa_engineer
             )
@@ -198,10 +236,10 @@ def run_sprint(user_prompt):
             devops_engineer = Agent(
                 role='Ingeniero DevOps Senior',
                 goal='Configurar el entorno de ejecución, Dockerfiles y compose para los nuevos proyectos.',
-                backstory='Automatizas entornos. Creas archivos de configuración (Dockerfile, compose, Nginx) usando la herramienta FileWriterTool.',
+                backstory='Automatizas entornos. Creas archivos de configuración (Dockerfile, compose, Nginx) usando la herramienta write_file.',
                 verbose=True,
                 allow_delegation=False,
-                tools=[file_writer]
+                tools=[write_file]
             )
             task_devops = Task(
                 description=f'Crea los entornos de infraestructura (Dockerfiles/docker-compose) requeridos para el proyecto bajo la ruta de la herramienta basándote en: "{user_prompt}".',
@@ -216,7 +254,7 @@ def run_sprint(user_prompt):
             custom_spec = config["custom_agent"]
             print(f"[Enrutador] 🚀 AUTOCREANDO AGENTE ESPECIALISTA: {custom_spec['role']}")
             
-            spec_tools = [file_reader, file_writer] if config["requires_coding"] else [file_reader]
+            spec_tools = [read_file, write_file] if config["requires_coding"] else [read_file]
             
             specialist_agent = Agent(
                 role=custom_spec["role"],
